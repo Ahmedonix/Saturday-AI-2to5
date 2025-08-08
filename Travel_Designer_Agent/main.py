@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import chainlit as cl
 from typing import cast, List
 from dataclasses import dataclass
-from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, function_tool
+from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, function_tool, RunContextWrapper
 from agents.run import RunConfig
 
 
@@ -23,18 +23,48 @@ class UserTravelContext:
     destination: str = ""
 
 @function_tool
-def get_flights(destination: str) -> str:
-    return f"Flights available to {destination}: Flight A (10am), Flight B (3pm), Flight C (9pm)"
+async def get_flights(wrapper: RunContextWrapper, input: UserTravelContext) -> str:
+    """
+    Get flights for specified destination
+    """
+
+    try :
+        prompt = (
+            f"Get flights for {input.destination} based on the user's mood: {input.mood}."
+            "Do not hallucinate. If you dont know about any flights just create some random flights."
+            "Format the output clearly as a list of flights."
+        )
+        response = await client.chat.completions.create(
+            model = "gemini-2.0-flash",
+            messages=[
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 @function_tool
-def suggest_hotels(destination: str) -> List[str]:
-    hotels = {
-        "paris": ["Hotel Lumière", "Eiffel Stay", "Champs Boutique Hotel"],
-        "tokyo": ["Shinjuku Inn", "Tokyo Grand Palace", "Nihon Comfort Hotel"],
-        "new york": ["Manhattan Suites", "Central Park Hotel", "Liberty Stay"]
-    }
-    return hotels.get(destination.lower(), ["No hotel data available."])
+async def suggest_hotels(wrapper: RunContextWrapper, input: UserTravelContext) -> List[str]:
+    """
+    Suggest hotels for specified destination
+    """
 
+    try:
+        prompt = (
+            f"Suggest hotels for {input.destination} based on the user's mood: {input.mood}."
+            "Do not hallucinate. If you dont know about any hotels just create some random hotels."
+            "Format the output clearly as a list of hotels."
+        )
+        response = await client.chat.completions.create(
+            model = "gemini-2.0-flash",
+            messages=[
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 @cl.on_chat_start
 async def start():
